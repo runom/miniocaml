@@ -24,12 +24,26 @@ let rec eval e env =
     | Minus(e1, e2) -> binop (-) e1 e2 env
     | Div(e1, e2) -> binop (/) e1 e2 env
     | Eq(e1, e2) -> 
-        (let rhs = eval e2 env in let lhs = eval e1 env in
+        let rhs = eval e2 env in let lhs = eval e1 env in
+        let rec comp lhs rhs =
             match (lhs, rhs) with
             | (IntVal(n1), IntVal(n2)) -> BoolVal(n1 = n2)
             | (BoolVal(b1), BoolVal(b2)) -> BoolVal(b1 = b2)
-            | (ListVal(l1), ListVal(l2)) -> BoolVal(l1 = l2)
-            | _ -> failwith "wrong value")
+            | (ListVal(l1), ListVal(l2)) -> 
+                if List.length l1 <> List.length l2 then BoolVal(false)
+                else 
+                (match (l1, l2) with 
+                        | ([], []) -> BoolVal(true)
+                        | (v1 :: l1, v2 :: l2) -> 
+                            (match (comp v1 v2) with 
+                            | BoolVal(true) -> comp (ListVal(l1)) (ListVal(l2))
+                            | BoolVal(false) -> BoolVal(false);
+                            | _ -> failwith "internal error"
+                            )
+                        | _ -> failwith "internal error"
+                )
+            | _ -> failwith "wrong value"
+        in comp lhs rhs
     | Neq(e1, e2) ->
         (let rhs = eval e2 env in let lhs = eval e1 env in
             match (lhs, rhs) with
