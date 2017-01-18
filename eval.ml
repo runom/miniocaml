@@ -9,25 +9,7 @@ let rec lookup x env =
     |[] -> failwith("unbound variable:" ^ x)
     |(y,v)::tl -> if x=y then v else lookup x tl;;
 
-
-(*open Printf;;
-let rec print_env env =
-    let rec print_env_impl env =
-        match env with
-        | [] -> ();
-        | (x, IntVal v)::tl -> printf "(\"%s\", IntVal %d);" x v; print_env_impl tl
-        | (x, BoolVal false)::tl -> printf "(\"%s\", BoolVal false);" x; print_env_impl tl
-        | (x, BoolVal true)::tl -> printf "(\"%s\", BoolVal true);" x; print_env_impl tl
-        | (f, FunVal(x, e, env1))::tl
-            -> printf "(\"%s\", FunVal(\"%s\", " f x; print_env env1; printf "));"; print_env_impl tl
-        | (f1, RecFunVal(f2, x, e, env1))::tl
-            -> printf "(\"%s\", RecFunVal(\"%s\", \"%s\", " f1 f2 x; print_env env1; printf "));"; print_env_impl tl
-        | _ -> failwith "unknown value"
-    in printf "["; print_env_impl env; printf "]";; *)
-
 let rec eval e env =
-    (*print_env env; print_newline() ;*)
-    
     let binop f e1 e2 env =
         let rhs = eval e2 env in let lhs = eval e1 env in
             match (lhs, rhs) with
