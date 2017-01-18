@@ -9,25 +9,7 @@ let rec lookup x env =
     |[] -> failwith("unbound variable:" ^ x)
     |(y,v)::tl -> if x=y then v else lookup x tl;;
 
-
-(*open Printf;;
-let rec print_env env =
-    let rec print_env_impl env =
-        match env with
-        | [] -> ();
-        | (x, IntVal v)::tl -> printf "(\"%s\", IntVal %d);" x v; print_env_impl tl
-        | (x, BoolVal false)::tl -> printf "(\"%s\", BoolVal false);" x; print_env_impl tl
-        | (x, BoolVal true)::tl -> printf "(\"%s\", BoolVal true);" x; print_env_impl tl
-        | (f, FunVal(x, e, env1))::tl
-            -> printf "(\"%s\", FunVal(\"%s\", " f x; print_env env1; printf "));"; print_env_impl tl
-        | (f1, RecFunVal(f2, x, e, env1))::tl
-            -> printf "(\"%s\", RecFunVal(\"%s\", \"%s\", " f1 f2 x; print_env env1; printf "));"; print_env_impl tl
-        | _ -> failwith "unknown value"
-    in printf "["; print_env_impl env; printf "]";; *)
-
 let rec eval e env =
-    (*print_env env; print_newline() ;*)
-    
     let binop f e1 e2 env =
         let rhs = eval e2 env in let lhs = eval e1 env in
             match (lhs, rhs) with
@@ -42,12 +24,26 @@ let rec eval e env =
     | Minus(e1, e2) -> binop (-) e1 e2 env
     | Div(e1, e2) -> binop (/) e1 e2 env
     | Eq(e1, e2) -> 
-        (let rhs = eval e2 env in let lhs = eval e1 env in
+        let rhs = eval e2 env in let lhs = eval e1 env in
+        let rec comp lhs rhs =
             match (lhs, rhs) with
             | (IntVal(n1), IntVal(n2)) -> BoolVal(n1 = n2)
             | (BoolVal(b1), BoolVal(b2)) -> BoolVal(b1 = b2)
-            | (ListVal(l1), ListVal(l2)) -> BoolVal(l1 = l2)
-            | _ -> failwith "wrong value")
+            | (ListVal(l1), ListVal(l2)) -> 
+                if List.length l1 <> List.length l2 then BoolVal(false)
+                else 
+                (match (l1, l2) with 
+                        | ([], []) -> BoolVal(true)
+                        | (v1 :: l1, v2 :: l2) -> 
+                            (match (comp v1 v2) with 
+                            | BoolVal(true) -> comp (ListVal(l1)) (ListVal(l2))
+                            | BoolVal(false) -> BoolVal(false);
+                            | _ -> failwith "internal error"
+                            )
+                        | _ -> failwith "internal error"
+                )
+            | _ -> failwith "wrong value"
+        in comp lhs rhs
     | Neq(e1, e2) ->
         (let rhs = eval e2 env in let lhs = eval e1 env in
             match (lhs, rhs) with
