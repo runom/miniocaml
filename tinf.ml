@@ -1,16 +1,85 @@
 open Syntax;;
 
+type tyvar = string
 type ty = 
     | TInt 
     | TBool
-    | TVar of string
+    | TArrow of ty * ty
+    | TVar of tyvar
 
 type tyenv = (string * ty) list
+type tysubst = (tyvar * ty) list
 
 let rec lookup x env =
     match env with
     |[] -> failwith("unbound variable:" ^ x)
     |(y,v)::tl -> if x=y then v else lookup x tl
+
+let rec occurs tx t =
+    if tx = t then true
+    else 
+        match t with
+        | TArrow(t1, t2) -> (occurs tx t1) || (occurs tx t2)
+        | _ -> false
+
+(*
+memo. Pervasives.or は非推奨
+*)
+
+let rec subst_ty theta t =
+    let rec subst_ty' theta1 s =
+        match theta1 with
+        | [] -> TVar(s)
+        | (tx, t1) :: theta2 ->
+            if tx = s then t1
+            else subst_ty' theta2 s
+    in match t with
+        | TInt -> TInt
+        | TBool -> TBool
+        | TArrow(t2, t3) -> TArrow(subst_ty theta t2, subst_ty theta t3)
+        | TVar(s) -> subst_ty' theta s
+
+let subst_tyenv theta te =
+    List.map (fun (x, t) -> (x, subst_ty theta t)) te
+
+let subst_eql theta eql =
+    List.map (fun (t1, t2) -> (subst_ty theta t1, subst_ty theta t2)) eql
+
+let rec compose_subst theta2 theta1 =
+    let theta11 = 
+        List.map (fun(tx, t) -> (tx, subst_ty theta2 t)) theta1
+    in 
+        List.fold_left (fun tau -> fun (tx, t) ->
+                            try
+                                let _ = lookup tx theta1 
+                                    in tau 
+                            with Failure(_) ->
+                                (tx, t) :: tau
+        ) theta11 theta2
+
+let unify eql =
+    let rec solve eql theta =
+        match eql with
+        | [] -> theta
+        | (t1, t2) :: eql2 ->
+            if t1 = t2 then solve eql2 theta
+            else (
+                match (t1, t2) with 
+                | (TArrow(t11, t12), TArrow(t21, t22))
+                    -> solve ((t11, t21) :: (t12, t22) :: eql2) theta
+                | (TVar(s), _)
+                    -> if (occurs t1 t2) 
+                        then failwith "unification failed"
+                        else solve (subst_eql [(s, t2)] eql2)
+                                (compose_subst [(s, t2)] theta)
+                | (_, TVar(s))
+                    -> if (occurs t2 t1) 
+                        then failwith "unification failed"
+                        else solve (subst_eql [(s, t1)] eql2)
+                                (compose_subst [(s, t1)] theta)
+                | (_, _) -> failwith "unification failed"
+                )
+    in solve eql []
 
 let emptyenv () = [];;
 
@@ -18,17 +87,8 @@ let ext env x v = (x, v) :: env;;
 
 let new_typevar s = TVar("'" ^ s)
 
-let rec substitute' tvar t te =
-    match te with
-    | [] -> []
-    | (x, t2) :: te2 ->
-        let t3 = (if t2 = tvar then t else t2) in
-        (x, t3) :: (substitute' tvar t te2)
-
 let substitute tvar t te =
-    List.map (fun (x, t2) -> 
-        if t2 = tvar then (x, t) else (x, t2))
-        te
+    List.map (fun (x, t2) ->  if t2 = tvar then (x, t) else (x, t2)) te
 
 let rec tinf te e =
     match e with
