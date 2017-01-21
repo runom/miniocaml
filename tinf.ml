@@ -142,6 +142,13 @@ let rec tinf te e n =
         let te = subst_tyenv theta4 te in
         let theta = compose_subst theta4 (compose_subst theta3 (compose_subst theta2 theta1)) in
             (te, t3, theta, n)
+    | Let(x, e1, e2) ->
+        let (te, t1, theta1, n) = tinf te e1 n in
+        let te = ext te x t1 in
+        let (te, t2, theta2, n) = tinf te e2 n in
+        let te = remove te x in
+        let theta = compose_subst theta2 theta1 in
+            (te, t2, theta, n)
     | Fun(x, e) ->
         let (tx, n) = new_typevar n in
         let te = ext te x tx in
