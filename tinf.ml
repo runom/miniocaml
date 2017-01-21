@@ -130,14 +130,6 @@ let rec tinf te e n =
         )
     | IntLit(_) -> (te, TInt, theta0, n)
     | BoolLit(_) -> (te, TBool, theta0, n)
-    | Plus(e1, e2) -> arithmetic te e1 e2 n
-    | Minus(e1, e2) -> arithmetic te e1 e2 n
-    | Times(e1, e2) -> arithmetic te e1 e2 n
-    | Div(e1, e2) -> arithmetic te e1 e2 n
-    | Eq(e1, e2) -> compare te e1 e2 n
-    | Neq(e1, e2) -> compare te e1 e2 n
-    | Greater(e1, e2) -> order te e1 e2 n
-    | Less(e1, e2) -> order te e1 e2 n
     | If(e1, e2, e3) ->
         let (te, t1, theta1, n) = tinf te e1 n in
         let (te, t2, theta2, n) = tinf te e2 n in
@@ -167,6 +159,14 @@ let rec tinf te e n =
         let te = subst_tyenv theta3 te in
         let theta = compose_subst theta3 (compose_subst theta2 theta1) in
             (te, t3, theta, n)
+    | Eq(e1, e2) -> compare te e1 e2 n
+    | Neq(e1, e2) -> compare te e1 e2 n
+    | Greater(e1, e2) -> order te e1 e2 n
+    | Less(e1, e2) -> order te e1 e2 n
+    | Plus(e1, e2) -> arithmetic te e1 e2 n
+    | Minus(e1, e2) -> arithmetic te e1 e2 n
+    | Times(e1, e2) -> arithmetic te e1 e2 n
+    | Div(e1, e2) -> arithmetic te e1 e2 n    
     | _ -> failwith "unknown expression"
 
 
