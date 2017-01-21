@@ -84,66 +84,66 @@ let unify eql =
 let emptyenv () = [];;
 
 let ext env x v = (x, v) :: env;;
+let remove env x =
+    List.remove_assoc x env
 
-let new_typevar s = TVar("'" ^ s)
+let theta0 = ([] : tysubst)
 
-let substitute tvar t te =
-    List.map (fun (x, t2) ->  if t2 = tvar then (x, t) else (x, t2)) te
+let new_typevar n = 
+    let suf = if n / 26 = 0 then "" else string_of_int (n / 26) in
+    let ch = char_of_int (int_of_char 'a' + n mod 26) in
+        (TVar("'" ^ (String.make 1 ch) ^ suf), n + 1)
 
-let rec tinf te e =
+let rec tinf te e n =
     match e with
-    | IntLit(_) -> (te, TInt)
-    | BoolLit(_) -> (te, TBool)
-    | Var(s) -> 
+    | Var(s) ->
         (try
-            let t1 = lookup s te in (te, t1)
-        with Failure(_) -> 
-            let tvar = new_typevar s in
-            let te1 = ext te s tvar in
-                (te1, tvar)
+            let t1 = lookup s te in (te, t1, theta0, n)
+        with Failure(_) ->
+            let (tx, n) = new_typevar n in
+            let te = ext te s tx in
+                (te, tx, theta0, n)
         )
+    | IntLit(_) -> (te, TInt, theta0, n)
+    | BoolLit(_) -> (te, TBool, theta0, n)
     | Plus(e1, e2) ->
-        let (te1, t1) = tinf te e1 in
-        let te2 = 
-            (match t1 with
-            | TInt -> te1
-            | TVar(_) -> substitute t1 TInt te1
-            | _ -> failwith "type error in Plus"
-            ) 
-        in
-        let (te3, t2) = tinf te2 e2 in
-        let te4 = 
-            (match t2 with
-            | TInt -> te3
-            | TVar(_) -> substitute t2 TInt te3
-            | _ -> failwith "type error in Plus"
-            )
-        in (te4, TInt)
+        let (te, t1, theta1, n) = tinf te e1 n in
+        let (te, t2, theta2, n) = tinf te e2 n in
+        let t1 = subst_ty theta2 t1 in
+        let theta3 = unify [(t1, TInt); (t2, TInt)] in
+        let te = subst_tyenv theta3 te in
+        let theta = compose_subst theta3 (compose_subst theta2 theta1) in
+            (te, TInt, theta, n)
     | If(e1, e2, e3) ->
-        let (te1, t1) = tinf te e1 in
-        let te2 =
-            (match t1 with
-            | TBool -> te1
-            | TVar(s) -> substitute t1 TBool te1
-            | _ -> failwith "type error in If"
-            )
-        in
-        let (te3, t2) = tinf te2 e2 in
-        let (te4, t3) = tinf te3 e3 in
-            (match (t2, t3) with 
-            | (TInt, TInt) -> (te4, TInt)
-            | (TBool, TBool) -> (te4, TBool)
-            | (TInt, TVar(_)) ->
-                let te5 = substitute t3 TInt te4 in (te5, TInt)
-            | (TVar(_), TInt) ->
-                let te5 = substitute t2 TInt te4 in (te5, TInt)  
-            | (TBool, TVar(_)) ->
-                let te5 = substitute t3 TBool te4 in (te5, TBool)
-            | (TVar(_), TBool) ->
-                let te5 = substitute t2 TBool te4 in (te5, TBool)
-            | (TVar(_), TVar(_)) ->
-                let te5 = substitute t2 t3 te4 in (te5, t3)
-            | _ -> failwith "type error in If"
-            )
+        let (te, t1, theta1, n) = tinf te e1 n in
+        let (te, t2, theta2, n) = tinf te e2 n in
+        let t1 = subst_ty theta2 t1 in
+        let (te, t3, theta3, n) = tinf te e3 n in
+        let t1 = subst_ty theta3 t1 in
+        let t2 = subst_ty theta3 t2 in
+        let theta4 = unify [(t1, TBool); (t2, t3)] in
+        let t3 = subst_ty theta4 t3 in
+        let te = subst_tyenv theta4 te in
+        let theta = compose_subst theta4 (compose_subst theta3 (compose_subst theta2 theta1)) in
+            (te, t3, theta, n)
+    | Fun(x, e) ->
+        let (tx, n) = new_typevar n in
+        let te = ext te x tx in
+        let (te, t1, theta, n) = tinf te e n in
+        let t2 = subst_ty theta tx in
+        let te = remove te x in
+            (te, TArrow(t2, t1), theta, n)
+    | App(e1, e2) ->
+        let (te, t1, theta1, n) = tinf te e1 n in
+        let (te, t2, theta2, n) = tinf te e2 n in
+        let (tx, n) = new_typevar n in
+        let t1 = subst_ty theta2 t1 in
+        let theta3 = unify [(t1, TArrow(t2, tx))] in
+        let t3 = subst_ty theta3 tx in
+        let te = subst_tyenv theta3 te in
+        let theta = compose_subst theta3 (compose_subst theta2 theta1) in
+            (te, t3, theta, n)
     | _ -> failwith "unknown expression"
 
+
+let tinf e = tinf (emptyenv ()) e 0
