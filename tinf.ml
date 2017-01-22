@@ -193,6 +193,52 @@ let rec tinf te e n =
     | Minus(e1, e2) -> arithmetic te e1 e2 n
     | Times(e1, e2) -> arithmetic te e1 e2 n
     | Div(e1, e2) -> arithmetic te e1 e2 n    
+    | Empty -> 
+        let (tx, n) = new_typevar n in
+            (te, TList(tx), theta0, n)
+    | List(l1) -> 
+        let rec tinfl l te tx n =
+            match l with 
+            | [] ->  (te, tx, theta0, n)
+            | hd :: tl ->
+                let (te, t1, theta1, n) = tinf te hd n in
+                let tx = subst_ty theta1 tx in
+                let theta2 = unify [(tx, t1)] in
+                let tx = subst_ty theta2 tx in
+                let te = subst_tyenv theta2 te in
+                let theta3 = compose_subst theta2 theta1 in
+                let (te, t3, theta4, n) = tinfl tl te tx n in
+                let theta = compose_subst theta3 theta4 in
+                    (te, t3, theta, n)
+        in 
+        let (tx, n) = new_typevar n in
+        let (te, t1, theta, n) = tinfl l1 te tx n in
+            (te, TList(t1), theta, n)
+    | Cons(e1, e2) -> 
+        let (te, t1, theta1, n) = tinf te e1 n in
+        let (te, t2, theta2, n) = tinf te e2 n in
+        let t1 = subst_ty theta2 t1 in
+        let theta3 = unify [(t2, TList(t1))] in
+        let t2 = subst_ty theta3 t2 in
+        let te = subst_tyenv theta3 te in
+        let theta = compose_subst theta3 (compose_subst theta2 theta1) in
+            (te, t2, theta, n)
+    | Head(e1) -> 
+        let (te, t1, theta1, n) = tinf te e1 n in
+        let (tx, n) = new_typevar n in
+        let theta2 = unify [(t1, TList(tx))] in
+        let t2 = subst_ty theta2 tx in
+        let te = subst_tyenv theta2 te in
+        let theta = compose_subst theta2 theta1 in
+            (te, t2, theta, n)
+    | Tail(e1) -> 
+        let (te, t1, theta1, n) = tinf te e1 n in
+        let (tx, n) = new_typevar n in
+        let theta2 = unify [(t1, TList(tx))] in
+        let t1 = subst_ty theta2 t1 in
+        let te = subst_tyenv theta2 te in
+        let theta = compose_subst theta2 theta1 in
+            (te, t1, theta, n)
     | _ -> failwith "unknown expression"
 
 
