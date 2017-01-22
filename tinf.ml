@@ -4,6 +4,7 @@ type tyvar = string
 type ty = 
     | TInt 
     | TBool
+    | TList of ty
     | TArrow of ty * ty
     | TVar of tyvar
 
@@ -19,6 +20,7 @@ let rec occurs tx t =
     if tx = t then true
     else 
         match t with
+        | TList(t1) -> (occurs tx t1)
         | TArrow(t1, t2) -> (occurs tx t1) || (occurs tx t2)
         | _ -> false
 
@@ -36,6 +38,7 @@ let rec subst_ty theta t =
     in match t with
         | TInt -> TInt
         | TBool -> TBool
+        | TList(t2) -> TList(subst_ty theta t2)
         | TArrow(t2, t3) -> TArrow(subst_ty theta t2, subst_ty theta t3)
         | TVar(s) -> subst_ty' theta s
 
@@ -67,6 +70,8 @@ let unify eql =
                 match (t1, t2) with 
                 | (TArrow(t11, t12), TArrow(t21, t22))
                     -> solve ((t11, t21) :: (t12, t22) :: eql2) theta
+                | (TList(t11), TList(t21))
+                    -> solve ((t11, t21) :: eql2) theta
                 | (TVar(s), _)
                     -> if (occurs t1 t2) 
                         then failwith "unification failed"
