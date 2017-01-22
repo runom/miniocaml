@@ -107,7 +107,7 @@ let rec tinf te e n =
         let (te, t1, theta1, n) = tinf te e1 n in
         let (te, t2, theta2, n) = tinf te e2 n in
         let t1 = subst_ty theta2 t1 in
-        let theta3 = unify [(t1, t2)] in  (* FIXME:  関数同士の比較を弾けない *)
+        let theta3 = unify [(t1, t2)] in 
         let te = subst_tyenv theta3 te in
         let theta = compose_subst theta3 (compose_subst theta2 theta1) in
             (te, TBool, theta, n) in
