@@ -160,13 +160,13 @@ let rec tinf te e n =
         let (ty, n) = new_typevar n in
         let te = ext te f (TArrow(tx, ty)) in
         let (te, t1, theta1, n) = tinf te e1 n in
-        let t2 = subst_ty theta1 tx in
-        let te = remove te f in
         let te = remove te x in
-        let te = ext te f (TArrow(t2, t1)) in
-        let (te, t3, theta2, n) = tinf te e2 n in
+        let te = subst_tyenv theta1 te in
+        let theta2 = unify [(ty, t1)] in
+        let te = subst_tyenv theta2 te in
+        let (te, t3, theta3, n) = tinf te e2 n in
         let te = remove te f in
-        let theta = compose_subst theta2 theta1 in
+        let theta = compose_subst theta3 (compose_subst theta2 theta1) in
             (te, t3, theta, n) 
     | Fun(x, e) ->
         let (tx, n) = new_typevar n in
