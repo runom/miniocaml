@@ -116,14 +116,6 @@ let rec tinf te e n =
         let te = subst_tyenv theta3 te in
         let theta = compose_subst theta3 (compose_subst theta2 theta1) in
             (te, TBool, theta, n) in
-    let order te e1 e2 n =
-        let (te, t1, theta1, n) = tinf te e1 n in
-        let (te, t2, theta2, n) = tinf te e2 n in
-        let t1 = subst_ty theta2 t1 in
-        let theta3 = unify [(t1, TInt); (t2, TInt)] in
-        let te = subst_tyenv theta3 te in
-        let theta = compose_subst theta3 (compose_subst theta2 theta1) in
-            (te, TBool, theta, n) in
     match e with
     | Var(s) ->
         (try
@@ -187,8 +179,8 @@ let rec tinf te e n =
             (te, t3, theta, n)
     | Eq(e1, e2) -> compare te e1 e2 n
     | Neq(e1, e2) -> compare te e1 e2 n
-    | Greater(e1, e2) -> order te e1 e2 n
-    | Less(e1, e2) -> order te e1 e2 n
+    | Greater(e1, e2) -> compare te e1 e2 n
+    | Less(e1, e2) -> compare te e1 e2 n
     | Plus(e1, e2) -> arithmetic te e1 e2 n
     | Minus(e1, e2) -> arithmetic te e1 e2 n
     | Times(e1, e2) -> arithmetic te e1 e2 n

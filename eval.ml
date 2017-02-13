@@ -15,16 +15,8 @@ let rec eval e env =
             match (lhs, rhs) with
             |(IntVal(n1), IntVal(n2)) -> IntVal(f n1 n2)
             | _ -> failwith "integer values expected"
-    in 
-    match e with
-    | Var(x) -> lookup x env
-    | IntLit(n) -> IntVal(n)
-    | Plus(e1, e2) -> binop (+) e1 e2 env
-    | Times(e1, e2) -> binop ( * ) e1 e2 env
-    | Minus(e1, e2) -> binop (-) e1 e2 env
-    | Div(e1, e2) -> binop (/) e1 e2 env
-    | Eq(e1, e2) -> 
-        let rhs = eval e2 env in let lhs = eval e1 env in
+    in
+    let equal lhs rhs =
         let rec comp lhs rhs =
             match (lhs, rhs) with
             | (IntVal(n1), IntVal(n2)) -> BoolVal(n1 = n2)
@@ -44,29 +36,42 @@ let rec eval e env =
                 )
             | _ -> failwith "wrong value"
         in comp lhs rhs
-    | Neq(e1, e2) ->
-        (let rhs = eval e2 env in let lhs = eval e1 env in
+    in
+    let greater lhs rhs =
+        let rec comp lhs rhs =
             match (lhs, rhs) with
-            | (IntVal(n1), IntVal(n2)) -> BoolVal(n1 <> n2)
-            | (BoolVal(b1), BoolVal(b2)) -> BoolVal(b1 <> b2)
-            | _ -> failwith "wrong value")
+            | (IntVal(n1), IntVal(n2)) -> BoolVal(n1 > n2)
+            | (BoolVal(b1), BoolVal(b2)) -> BoolVal(b1 > b2)
+            | (ListVal(l1), ListVal(l2)) -> 
+                (match (l1, l2) with 
+                        | ([], []) -> BoolVal(false)
+                        | (_, []) -> BoolVal(true)
+                        | ([], _) -> BoolVal(false)
+                        | (v1 :: l1, v2 :: l2) -> 
+                            (match (equal v1 v2) with 
+                            | BoolVal(true) -> comp (ListVal(l1))  (ListVal(l2))
+                            | BoolVal(false) -> comp v1 v2
+                            | _ -> failwith "internal error"
+                            )
+                )
+            | _ -> failwith "wrong value"
+        in comp lhs rhs
+    in
+    match e with
+    | Var(x) -> lookup x env
+    | IntLit(n) -> IntVal(n)
     | BoolLit(b) -> BoolVal(b)
     | If(e1, e2, e3) -> (match (eval e1 env) with
                             | BoolVal(true) -> eval e2 env
                             | BoolVal(false) -> eval e3 env
                             | _ -> failwith "wrong value")
-    | Greater(e1, e2) -> 
-        (let rhs = eval e2 env in let lhs = eval e1 env in
-            match (lhs, rhs) with
-            | (IntVal(n1), IntVal(n2)) -> BoolVal(n1 < n2)
-            | _ -> failwith "integer values expected")
     | Let(x, e1, e2) -> 
         let env1 = ext env x (eval e1 env) 
         in eval e2 env1
-    | Fun(x, e1) -> FunVal(x, e1, env)
     | LetRec(f, x, e1, e2) ->
         let env1 = ext env f (RecFunVal(f, x, e1, env))
         in eval e2 env1
+    | Fun(x, e1) -> FunVal(x, e1, env)
     | App(e1, e2) -> 
         (let arg = eval e2 env in let funpart = (eval e1 env) in
             match (funpart) with
@@ -75,15 +80,34 @@ let rec eval e env =
             | RecFunVal(f, x, body, env1) ->
                 eval body (ext (ext env1 x arg) f funpart)
             | _ -> failwith "function value expected")
+    | Eq(e1, e2) -> 
+        let rhs = eval e2 env in let lhs = eval e1 env in
+            equal lhs rhs
+    | Neq(e1, e2) ->
+        let rhs = eval e2 env in let lhs = eval e1 env in
+            (match (equal lhs rhs) with
+            | BoolVal(b) -> BoolVal(not b)
+            | _ -> failwith "internal error"
+            )
+    | Greater(e1, e2) -> 
+        let rhs = eval e2 env in let lhs = eval e1 env in
+            greater lhs rhs
+    | Less(e1, e2) -> 
+        let rhs = eval e2 env in let lhs = eval e1 env in
+            greater rhs lhs
+    | Plus(e1, e2) -> binop (+) e1 e2 env
+    | Minus(e1, e2) -> binop (-) e1 e2 env
+    | Times(e1, e2) -> binop ( * ) e1 e2 env
+    | Div(e1, e2) -> binop (/) e1 e2 env
     | Empty -> ListVal([]);
+    | List(l1) -> 
+        ListVal(List.map (fun e -> eval e env) l1)
     | Cons(e1, e2) ->
         begin
             match (eval e1 env, eval e2 env) with
             | (v1, ListVal(v2)) -> ListVal(v1 :: v2)
             | _ -> failwith "list value expected"
         end
-    | List(l1) -> 
-        ListVal(List.map (fun e -> eval e env) l1)
     | Head(e1) ->
         begin 
             match (eval e1 env) with
@@ -100,3 +124,4 @@ let rec eval e env =
         end
     | _ -> failwith "unknown expression";;
 
+let eval e = eval e (emptyenv ())
